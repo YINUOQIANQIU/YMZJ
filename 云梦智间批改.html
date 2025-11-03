@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI智能批改 - 云梦智间</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- 引入统一认证和UI管理 -->
+    <script src="云梦智间统一认证.js"></script>
+    <script src="云梦智间UI管理器.js"></script>
+    <script src="云梦智间主入口.js"></script>
+    
+    <!-- 批改功能脚本 -->
+    <script src="js/file-upload-manager.js"></script>
+    <script src="js/correction-manager.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2962FF',
+                        secondary: '#1A237E',
+                        success: '#4CAF50',
+                        error: '#F44336',
+                        warning: '#FF9800',
+                        info: '#2196F3'
+                    },
+                    fontFamily: {
+                        'sans': ['Poppins', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #f5f7ff 0%, #e3edff 100%);
+            min-height: 100vh;
+        }
+        .glass-effect {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.9);
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .text-highlight {
+            background: linear-gradient(120deg, #a8edea 0%, #fed6e3 100%);
+            background-repeat: no-repeat;
+            background-size: 100% 0.4em;
+            background-position: 0 88%;
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        .highlight-error {
+            background-color: rgba(244, 67, 54, 0.15);
+            border-bottom: 2px dashed #F44336;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .highlight-suggestion {
+            background-color: rgba(255, 152, 0, 0.15);
+            border-bottom: 2px dashed #FF9800;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .highlight-excellent {
+            background-color: rgba(76, 175, 80, 0.15);
+            border-bottom: 2px dashed #4CAF50;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .typing-dots {
+            display: inline-block;
+        }
+        .typing-dots::after {
+            content: '...';
+            animation: typing 1.5s infinite;
+        }
+        @keyframes typing {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <!-- 统一导航栏 -->
+    <nav class="flex items-center justify-between px-6 lg:px-12 h-16 bg-white/90 backdrop-blur-md fixed top-0 left-0 right-0 z-50 border-b border-blue-50">
+        <div class="flex items-center gap-8 lg:gap-16">
+            <a href="云梦智间首页.html" class="flex items-center gap-3">
+                <span class="text-primary text-2xl font-bold tracking-tight">云梦智间</span>
+            </a>
+            <div class="hidden lg:flex items-center gap-8">
+                <a href="云梦智间计划.html" class="text-gray-700 hover:text-primary transition-colors font-medium">备考规划</a>
+                <a href="云梦智间教学.html" class="text-gray-700 hover:text-primary transition-colors font-medium">在线教学</a>
+                <a href="云梦智间真题考试.html" class="text-gray-700 hover:text-primary transition-colors font-medium">真题考试</a>
+                <a href="云梦智间社区.html" class="text-gray-700 hover:text-primary transition-colors font-medium">学习社区</a>
+            </div>
+        </div>
+        
+        <!-- 动态登录/用户区域 -->
+        <div class="flex items-center gap-4 lg:gap-6" id="auth-section">
+            <div id="login-btn-container">
+                <!-- 由UI管理器动态填充 -->
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区域 -->
+    <main class="pt-24 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- 页面标题 -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl lg:text-5xl font-bold text-secondary mb-4">
+                <span class="text-highlight">AI智能批改</span>
+            </h1>
+            <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                专业英语作文批改，即时反馈语法错误、词汇使用和篇章结构，助力写作能力提升
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            <!-- 左侧输入面板 -->
+            <div class="xl:col-span-2 space-y-6">
+                <!-- 输入方式选择 -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <!-- 考试类型选择 -->
+                    <div class="flex items-center space-x-4 mb-6">
+                        <label class="text-sm font-medium text-gray-700">考试类型:</label>
+                        <select id="exam-type-select" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="CET4">英语四级</option>
+                            <option value="CET6">英语六级</option>
+                            <option value="IELTS">雅思</option>
+                            <option value="TOEFL">托福</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-6">
+                        <button id="text-input-tab" class="flex-1 py-3 px-4 text-sm font-medium rounded-md transition-all duration-200 bg-white text-primary shadow-sm">
+                            <i class="fas fa-keyboard mr-2"></i>文本输入
+                        </button>
+                        <button id="file-input-tab" class="flex-1 py-3 px-4 text-sm font-medium rounded-md transition-all duration-200 text-gray-600 hover:text-primary">
+                            <i class="fas fa-file-upload mr-2"></i>文件上传
+                        </button>
+                    </div>
+
+                    <!-- 文本输入区域 -->
+                    <div id="text-input-area" class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <label class="block text-sm font-medium text-gray-700">输入您的英文作文</label>
+                            <div class="flex gap-2">
+                                <button id="clear-text" class="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                                    <i class="fas fa-eraser mr-1"></i>清空
+                                </button>
+                                <button id="paste-text" class="text-sm text-primary hover:text-secondary transition-colors">
+                                    <i class="fas fa-paste mr-1"></i>粘贴
+                                </button>
+                            </div>
+                        </div>
+                        <textarea 
+                            id="essay-text" 
+                            rows="12"
+                            placeholder="请在此处输入或粘贴您的英文作文...&#10;&#10;例如：&#10;My Ideal Career&#10;My ideal job is to become a software engineer. I am passionate about programming and problem-solving. In the future, I want to work for a leading technology company where I can contribute to innovative projects..."
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 resize-none"
+                        ></textarea>
+                        <div class="flex justify-between items-center text-sm text-gray-500">
+                            <span id="word-count">0 单词</span>
+                            <span>建议字数：150-300词</span>
+                        </div>
+                    </div>
+
+                    <!-- 文件上传区域 -->
+                    <div id="file-input-area" class="space-y-4 hidden">
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-all duration-200 hover:border-primary">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                            <p class="text-lg font-medium text-gray-600 mb-2">上传您的文档</p>
+                            <p class="text-sm text-gray-500 mb-4">支持 .txt, .doc, .docx, .pdf 格式</p>
+                            <input 
+                                type="file" 
+                                id="file-upload"
+                                accept=".txt,.doc,.docx,.pdf"
+                                class="hidden"
+                            >
+                            <button id="browse-files" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors">
+                                选择文件
+                            </button>
+                        </div>
+                        <div id="file-info" class="hidden">
+                            <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-file text-blue-500 text-xl"></i>
+                                    <div>
+                                        <p id="file-name" class="font-medium text-gray-800"></p>
+                                        <p id="file-size" class="text-sm text-gray-600"></p>
+                                    </div>
+                                </div>
+                                <button id="remove-file" class="text-red-500 hover:text-red-700">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 批改按钮 -->
+                    <div class="mt-6">
+                        <button id="submit-correction" class="w-full py-4 bg-gradient-to-r from-primary to-secondary text-white rounded-lg font-semibold text-lg hover:opacity-90 transition-all duration-200 shadow-lg flex items-center justify-center gap-3">
+                            <i class="fas fa-magic"></i>
+                            <span>开始AI批改</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 批改历史 -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-secondary mb-4 flex items-center">
+                        <i class="fas fa-history mr-2"></i>批改历史
+                    </h3>
+                    <div id="correction-history" class="space-y-3">
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-inbox text-4xl mb-3"></i>
+                            <p>暂无批改记录</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧结果面板 -->
+            <div class="space-y-6">
+                <!-- 评分概览 -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-secondary mb-6 flex items-center">
+                        <i class="fas fa-chart-bar mr-2"></i>批改结果
+                    </h3>
+                    
+                    <div id="score-overview" class="text-center py-8 text-gray-500">
+                        <i class="fas fa-edit text-4xl mb-3"></i>
+                        <p>提交作文后查看批改结果</p>
+                    </div>
+
+                    <div id="score-details" class="hidden space-y-6">
+                        <!-- 总体评分 -->
+                        <div class="text-center">
+                            <div class="inline-flex items-baseline mb-2">
+                                <span id="total-score" class="text-5xl font-bold text-primary">85</span>
+                                <span class="text-2xl text-gray-500 ml-1">/100</span>
+                            </div>
+                            <p id="score-comment" class="text-lg font-medium text-gray-700">良好的写作水平</p>
+                        </div>
+
+                        <!-- 评分细分 -->
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-gray-700">语法准确性</span>
+                                <div class="flex items-center space-x-2">
+                                    <span id="grammar-score" class="text-sm font-semibold">0/25</span>
+                                    <div class="w-24 bg-gray-200 rounded-full h-2">
+                                        <div id="grammar-bar" class="h-2 rounded-full" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-gray-700">词汇丰富度</span>
+                                <div class="flex items-center space-x-2">
+                                    <span id="vocabulary-score" class="text-sm font-semibold">0/20</span>
+                                    <div class="w-24 bg-gray-200 rounded-full h-2">
+                                        <div id="vocabulary-bar" class="h-2 rounded-full" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-gray-700">结构连贯性</span>
+                                <div class="flex items-center space-x-2">
+                                    <span id="structure-score" class="text-sm font-semibold">0/25</span>
+                                    <div class="w-24 bg-gray-200 rounded-full h-2">
+                                        <div id="structure-bar" class="h-2 rounded-full" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-gray-700">内容完整性</span>
+                                <div class="flex items-center space-x-2">
+                                    <span id="content-score" class="text-sm font-semibold">0/30</span>
+                                    <div class="w-24 bg-gray-200 rounded-full h-2">
+                                        <div id="content-bar" class="h-2 rounded-full" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 标注文本区域 -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-secondary mb-4 flex items-center">
+                        <i class="fas fa-highlighter mr-2"></i>标注文本
+                    </h3>
+                    <div id="annotated-text" class="text-gray-600">
+                        <p class="text-center py-4">批改完成后将显示标注文本</p>
+                    </div>
+                </div>
+
+                <!-- 详细分析 -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-secondary mb-4 flex items-center">
+                        <i class="fas fa-search mr-2"></i>详细分析
+                    </h3>
+                    
+                    <div id="analysis-content" class="space-y-4 text-gray-600">
+                        <p>提交作文后，AI将为您提供：</p>
+                        <ul class="space-y-2">
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-2"></i>
+                                <span>语法错误检测与修正</span>
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-lightbulb text-yellow-500 mr-2"></i>
+                                <span>词汇使用建议</span>
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-project-diagram text-blue-500 mr-2"></i>
+                                <span>篇章结构优化</span>
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-star text-purple-500 mr-2"></i>
+                                <span>个性化学习建议</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div id="detailed-analysis" class="hidden space-y-4">
+                        <!-- 分析内容将由JS动态生成 -->
+                    </div>
+                </div>
+
+                <!-- 学习建议 -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-secondary mb-4 flex items-center">
+                        <i class="fas fa-graduation-cap mr-2"></i>学习建议
+                    </h3>
+                    <div id="learning-suggestions" class="space-y-3 text-sm text-gray-600">
+                        <p>根据批改结果，为您推荐针对性的学习内容</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 加载遮罩 -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-8 max-w-md mx-4 text-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
+            <h3 class="text-xl font-semibold text-gray-800 mb-2">AI正在批改中</h3>
+            <p class="text-gray-600">请稍等<span class="typing-dots"></span></p>
+        </div>
+    </div>
+
+    <script>
+        // 初始化批改管理器
+        document.addEventListener('DOMContentLoaded', function() {
+            // 等待认证系统就绪
+            if (window.appMain) {
+                window.correctionManager = new CorrectionManager();
+                if (window.fileUploadManager) {
+                    window.fileUploadManager = new FileUploadManager();
+                }
+            } else {
+                document.addEventListener('authSystemReady', function() {
+                    window.correctionManager = new CorrectionManager();
+                    if (window.fileUploadManager) {
+                        window.fileUploadManager = new FileUploadManager();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
